@@ -176,7 +176,18 @@ var getValue = function(id,characteristic) {
     //console.log(thermostat.ambient_temperature_c);
     //console.log(typeof thermostat.ambient_temperature_c);
     
-    return thermostat.ambient_temperature_c;
+    var ret;
+    switch(characteristic) {
+    	case "current_temperature":
+    		ret=thermostat.ambient_temperature_c;
+    		break;
+    	case "target_temperature":
+    		ret=thermostat.target_temperature_c;
+    		break;
+    	default:
+    		ret=null;
+    }
+    return ret;
   }
 };
 
@@ -278,7 +289,7 @@ var newTemplateAccessory = function () {
       },{
         cType: types.CURRENT_TEMPERATURE_CTYPE,
         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "current_temperature", value); },
-        getValue: function() { console.log("GetValue"); return getValue(this.locals.id, "current_temperature"); },
+        onRead: function(callback) { console.log("OnRead: Current Temperature"); callback(getValue(this.locals.id, "current_temperature")); },
         perms: ["pr","ev"],
         format: "int",
         initialValue: 20,
@@ -289,6 +300,7 @@ var newTemplateAccessory = function () {
       },{
         cType: types.TARGET_TEMPERATURE_CTYPE,
         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "target_temperature", value); },
+        onRead: function(callback) { console.log("OnRead: Target Temperature"); callback(getValue(this.locals.id, "target_temperature")); },
         perms: ["pw","pr","ev"],
         format: "int",
         initialValue: 20,
