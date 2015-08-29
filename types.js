@@ -90,4 +90,3 @@ exports.WINDOW_COVERING_CURRENT_POSITION_CTYPE = stPre + "6D" + stPost;
 exports.WINDOW_COVERING_OPERATION_STATE_CTYPE = stPre + "72" + stPost;
 exports.CURRENTHEATINGCOOLING_CTYPE = stPre + "0F" + stPost;
 exports.TARGETHEATINGCOOLING_CTYPE = stPre + "33" + stPost;
-
