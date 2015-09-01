@@ -1,6 +1,7 @@
-
-var types = require("./types.js"); //homekit types
-var exports = module.exports = {}; //homekit exports
+var Accessory = require('../').Accessory;
+var Service = require('../').Service;
+var Characteristic = require('../').Characteristic;
+var uuid = require('../').uuid;
 var philipsHueInfo = require("./PhilipsHue_Info.js"); //philips hue connection parameters
 
 var lightList = [];
@@ -47,7 +48,7 @@ var getLights = function() {
       }
 };
 
-var execute = function(accessory,lightID,characteristic,value) {
+var execute = function(lightID,characteristic,value) {
     var httpSync = require('http-sync');
     var characteristic = characteristic.toLowerCase();
     var body = {};
@@ -56,15 +57,15 @@ var execute = function(accessory,lightID,characteristic,value) {
     } else if(characteristic === "on") {
         body = {on:value};
     } else if(characteristic === "hue") {
+        value = value/360 * 65536;
+        value = Math.round(value);
         body = {hue:value};
     } else  if(characteristic === "brightness") {
-        value = value/100;
-        value = value*255;
+        value = value/100 * 254;
         value = Math.round(value);
         body = {bri:value};
     } else if(characteristic === "saturation") {
-        value = value/100;
-        value = value*255;
+        value = value/100 * 254;
         value = Math.round(value);
         body = {sat:value};
     }  
@@ -87,7 +88,7 @@ var execute = function(accessory,lightID,characteristic,value) {
 
     var timedout = false;
     request.setTimeout(10000, function() {
-      console.log("Request Timedout!");
+      console.log("Request Timed Out!");
       timedout = true;
     });
     var response = request.end();
@@ -95,175 +96,137 @@ var execute = function(accessory,lightID,characteristic,value) {
     if (!timedout) {
       console.log("Hue response:"+response.body.toString());
     }
-    console.log("executed accessory: " + accessory + ", and characteristic: " + characteristic + ", with value: " +  value + "."); 
+    //console.log("executed accessory: " + accessory + ", and characteristic: " + characteristic + ", with value: " +  value + "."); 
 }
-
-var newTemplateAccessory = function () {
-    return {
-        displayName: "",
-      username: "",
-      pincode: philipsHueInfo.philipsHueDevicePin,
-      services: [{
-        sType: types.ACCESSORY_INFORMATION_STYPE, 
-        characteristics: [{
-            cType: types.NAME_CTYPE, 
-            onUpdate: null,
-            perms: ["pr"],
-            format: "string",
-            initialValue: "",
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Name of the accessory",
-            designedMaxLength: 255    
-        },{
-            cType: types.MANUFACTURER_CTYPE, 
-            onUpdate: null,
-            perms: ["pr"],
-            format: "string",
-            initialValue: philipsHueInfo.philipsHueManufacturer,
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Manufacturer",
-            designedMaxLength: 255    
-        },{
-            cType: types.MODEL_CTYPE,
-            onUpdate: null,
-            perms: ["pr"],
-            format: "string",
-            initialValue: "",
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Model",
-            designedMaxLength: 255    
-        },{
-            cType: types.SERIAL_NUMBER_CTYPE, 
-            onUpdate: null,
-            perms: ["pr"],
-            format: "string",
-            initialValue: "",
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "SN",
-            designedMaxLength: 255    
-        },{
-            cType: types.IDENTIFY_CTYPE, 
-            onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.lightNumber, "identify", value); },
-            perms: ["pw"],
-            format: "bool",
-            initialValue: false,
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Identify Accessory",
-            designedMaxLength: 1    
-        }]
-      },{
-        sType: types.LIGHTBULB_STYPE, 
-        characteristics: [{
-            cType: types.NAME_CTYPE,
-            onUpdate: null,
-            perms: ["pr"],
-            format: "string",
-            initialValue: "",
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Name of service",
-            designedMaxLength: 255   
-        },{
-            cType: types.POWER_STATE_CTYPE,
-            onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.lightNumber, "on", value); },
-            perms: ["pw","pr","ev"],
-            format: "bool",
-            initialValue: false,
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Turn On the Light",
-            designedMaxLength: 1    
-        },{
-            cType: types.HUE_CTYPE,
-            onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.lightNumber, "hue", value); },
-            perms: ["pw","pr","ev"],
-            format: "int",
-            initialValue: 0,
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Adjust Hue of Light",
-            designedMinValue: 0,
-            designedMaxValue: 65535,
-            designedMinStep: 1,
-            unit: "arcdegrees"
-        },{
-            cType: types.BRIGHTNESS_CTYPE,
-            onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.lightNumber, "brightness", value); },
-            perms: ["pw","pr","ev"],
-            format: "int",
-            initialValue: 0,
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Adjust Brightness of Light",
-            designedMinValue: 0,
-            designedMaxValue: 100,
-            designedMinStep: 1,
-            unit: "%"
-        },{
-            cType: types.SATURATION_CTYPE,
-            onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.lightNumber, "saturation", value); },
-            perms: ["pw","pr","ev"],
-            format: "int",
-            initialValue: 0,
-            supportEvents: false,
-            supportBonjour: false,
-            manfDescription: "Adjust Saturation of Light",
-            designedMinValue: 0,
-            designedMaxValue: 100,
-            designedMinStep: 1,
-            unit: "%"
-        }]
-      }]
-    }   
-};
 
 //the factory creates new accessory objects with the parameters that are passed
 var philipsHueAccFactory = function (paramsObject) {
 
-    if (typeof paramsObject === 'undefined') {
-        console.log("philipsHueAccFactory requires an paramsObject!");
-        throw {name: "ENOPARAMS", message: "required parameter missing, provide {lightNumber, lightID, name, model}."};
+  var HUE_LIGHT = {
+    number: paramsObject.lightNumber,
+    powerOn: false,
+    brightness: 100, // percentage
+    hue: 0,
+    saturation: 254,
+    
+    setPowerOn: function(on) { 
+      console.log("Turning the light %s!", on ? "on" : "off");
+      execute(HUE_LIGHT.number, "on", on);
+      HUE_LIGHT.powerOn = on;
+    },
+    setBrightness: function(brightness) {
+      console.log("Setting light brightness to %s", brightness);
+      execute(HUE_LIGHT.number, "brightness", brightness);
+      HUE_LIGHT.brightness = brightness;
+    },
+    setHue: function(hue) {
+      console.log("Setting light hue to %s", hue);
+      execute(HUE_LIGHT.number, "hue", hue);
+      HUE_LIGHT.hue = hue;
+    },
+    setSaturation: function(saturation) {
+      console.log("Setting light hue to %s", saturation);
+      execute(HUE_LIGHT.number, "saturation", saturation);
+      HUE_LIGHT.saturation = saturation;
+    },
+    identify: function() {
+      console.log("Identify the light!");
+      execute(HUE_LIGHT.number, "identify", null);
     }
-    if (typeof paramsObject.lightNumber !== 'number') {
-        console.log("philipsHueAccFactory requires an paramsObject.groupAdress as a string!");
-        throw {name: "ENOPARAMS", message: "required parameter missing, provide {lightNumber, lightID, name, model}."};
-    }
-    if (typeof paramsObject.lightID !== 'string') {
-        console.log("philipsHueAccFactory requires an paramsObject.groupAdress as a string!");
-        throw {name: "ENOPARAMS", message: "required parameter missing, provide {lightNumber, lightID, name, model}."};
-    }
-    if (typeof paramsObject.name !== 'string') {
-        console.log("philipsHueAccFactory requires an paramsObject.fullname as a string!");
-        throw {name: "ENOPARAMS", message: "required parameter missing, provide {lightNumber, lightID, name, model}."};
-    }
-    if (typeof paramsObject.model !== 'string') {
-        console.log("philipsHueAccFactory requires an paramsObject.fullname as a string!");
-        throw {name: "ENOPARAMS", message: "required parameter missing, provide {lightNumber, lightID, name, model}."};
-    }
- 
-    var newAccessory = newTemplateAccessory();
-    var name = "Philips Hue " + (paramsObject.model == "LCT002" ? "Lux " : "") + paramsObject.name;
+  }
+
+  var lightUUID = uuid.generate('"hap-nodejs:accessories:hue:'+paramsObject.lightID);
+
+  var name = "Philips Hue " + (paramsObject.model == "LCT002" ? "Lux " : "") + paramsObject.name;
     var serial = philipsHueInfo.philipsHueManufacturer.toUpperCase() + paramsObject.model.toUpperCase() + '-' + paramsObject.lightID.toString();
 
-    newAccessory.displayName = name;
-    newAccessory.username = serial;
-    newAccessory.serialNumber = serial;
-    newAccessory.locals = {
-        lightNumber: paramsObject.lightNumber,
-        lightID: paramsObject.lightID,
-        name: name,
-        model: paramsObject.model
-    };
-    newAccessory.services[0].characteristics[0].initialValue = name; // NAME_CTYPE
-    newAccessory.services[0].characteristics[2].initialValue = paramsObject.model; // MODEL_CTYPE
-    newAccessory.services[0].characteristics[3].initialValue = serial; // SERIAL_NUMBER_CTYPE
-    newAccessory.services[1].characteristics[0].initialValue = name + " Light Service"; // must access object directly
-    return newAccessory;
+  var light = new Accessory(name, lightUUID);
+
+  // Add properties for publishing (in case we're using Core.js and not BridgedCore.js)
+  light.username = "1A:2B:3C:4D:5E:FF";
+  light.pincode = "031-45-154";
+
+  light
+    .getService(Service.AccessoryInformation)
+    .setCharacteristic(Characteristic.Manufacturer, philipsHueInfo.philipsHueManufacturer)
+    .setCharacteristic(Characteristic.Model, paramsObject.model)
+    .setCharacteristic(Characteristic.SerialNumber, serial);
+
+  // listen for the "identify" event for this Accessory
+  light.on('identify', function(paired, callback) {
+    HUE_LIGHT.identify();
+    callback(); // success
+  });
+
+  // Add the actual Lightbulb Service and listen for change events from iOS.
+  // We can see the complete list of Services and Characteristics in `lib/gen/HomeKitTypes.js`
+  light
+    .addService(Service.Lightbulb, name) // services exposed to the user should have "names" like "Fake Light" for us
+    .getCharacteristic(Characteristic.On)
+    .on('set', function(value, callback) {
+      HUE_LIGHT.setPowerOn(value);
+      callback(); // Our fake Light is synchronous - this value has been successfully set
+    });
+
+  // We want to intercept requests for our current power state so we can query the hardware itself instead of
+  // allowing HAP-NodeJS to return the cached Characteristic.value.
+  light
+    .getService(Service.Lightbulb)
+    .getCharacteristic(Characteristic.On)
+    .on('get', function(callback) {
+      
+      // this event is emitted when you ask Siri directly whether your light is on or not. you might query
+      // the light hardware itself to find this out, then call the callback. But if you take longer than a
+      // few seconds to respond, Siri will give up.
+      
+      var err = null; // in case there were any problems
+      
+      if (HUE_LIGHT.powerOn) {
+        console.log("Are we on? Yes.");
+        callback(err, true);
+      }
+      else {
+        console.log("Are we on? No.");
+        callback(err, false);
+      }
+    });
+
+  // also add an "optional" Characteristic for Brightness
+  light
+    .getService(Service.Lightbulb)
+    .addCharacteristic(Characteristic.Brightness)
+    .on('get', function(callback) {
+      callback(null, HUE_LIGHT.brightness);
+    })
+    .on('set', function(value, callback) {
+      HUE_LIGHT.setBrightness(value);
+      callback();
+    });
+
+  light
+    .getService(Service.Lightbulb)
+    .addCharacteristic(Characteristic.Saturation)
+    .on('get', function(callback) {
+      callback(null, HUE_LIGHT.saturation);
+    })
+    .on('set', function(value, callback) {
+      HUE_LIGHT.setSaturation(value);
+      callback();
+    });
+
+  light
+    .getService(Service.Lightbulb)
+    .addCharacteristic(Characteristic.Hue)
+    .on('get', function(callback) {
+      callback(null, HUE_LIGHT.hue);
+    })
+    .on('set', function(value, callback) {
+      HUE_LIGHT.setHue(value);
+      callback();
+    });
+
+
+  return light;
 };
 
 module.exports = (function () {
@@ -272,7 +235,7 @@ module.exports = (function () {
     getLights();
     for (index in lightList) {
         if (lightList.hasOwnProperty(index)) {
-            accessories.push({accessory: philipsHueAccFactory(lightList[index])});
+            accessories.push(philipsHueAccFactory(lightList[index]));
         }
     }
     return accessories;
