@@ -2,7 +2,16 @@ var Accessory = require('../').Accessory;
 var Service = require('../').Service;
 var Characteristic = require('../').Characteristic;
 var uuid = require('../').uuid;
-var philipsHueInfo = require("./PhilipsHue_Info.js"); //philips hue connection parameters
+var philipsHueInfo;
+
+//open up the info.
+try {
+  philipsHueInfo = require("./PhilipsHue_Info.js"); //philips hue connection parameters
+}
+catch (err) {
+  console.log("Unable to read file PhilipsHue_Info.js: ", err);
+  console.log("see PhilipsHue_Info_SAMPLE.js. for an example");
+}
 
 var lightList = [];
 

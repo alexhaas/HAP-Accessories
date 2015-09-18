@@ -2,8 +2,16 @@ var Accessory = require('../').Accessory;
 var Service = require('../').Service;
 var Characteristic = require('../').Characteristic;
 var uuid = require('../').uuid;
-var nestInfo = require("./Nest_Info.js"); //nest connection parameters
 var storage = require('node-persist'); //persistent storage for the nest auth token
+var nestInfo;
+
+try {
+  nestInfo = require("./Nest_Info.js"); //nest connection parameters
+}
+catch (err) {
+  console.log("Unable to read file Nest_Info.js: ", err);
+  console.log("see Nest_Info_SAMPLE.js. for an example");
+}
 
 var nestList = []; //empty, we'll fill this when we talk to nest
 var nestAccessToken = "";
