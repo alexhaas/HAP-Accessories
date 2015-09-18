@@ -106,13 +106,31 @@ var getNestThermostats = function() {
     for (var k in thermostats){
       if (typeof thermostats[k] !== 'function') {
         var thermostat = thermostats[k];
+        var hvac_mode;
+        switch(thermostat.hvac_mode) {
+          case "heat":
+            hvac_mode=Characteristic.CurrentHeatingCoolingState.HEAT;
+            break;
+          case "cool":
+            hvac_mode=Characteristic.CurrentHeatingCoolingState.COOL;
+            break;
+          case "heat-cool":
+            hvac_mode=3; //not officially supported in homekit types as of 9/17/15... maybe apple will fix? value of "auto" in simulator
+            break;
+          case "off":
+          default:
+            hvac_mode=Characteristic.CurrentHeatingCoolingState.OFF;
+            break;
+        }
         nestList.push({
           id: k,
           name: thermostat.name_long,
-          temperature_scale: thermostat.temperature_scale,
-          hvac_mode: thermostat.hvac_mode,
+          temperature_scale: (thermostat.temperature_scale === "C" ? Characteristic.TemperatureDisplayUnits.CELSIUS : Characteristic.TemperatureDisplayUnits.FAHRENHEIT),
+          current_heating_cooling_state: hvac_mode,
+          target_heating_cooling_state: hvac_mode, //set target to same so we dont change anything
           current_temperature: thermostat["ambient_temperature_"+thermostat.temperature_scale.toLowerCase()]*1.0,
           target_temperature: thermostat["target_temperature_"+thermostat.temperature_scale.toLowerCase()]*1.0,
+          current_relative_humidity: thermostat.humidity,
         });
       }
     }
@@ -126,6 +144,23 @@ var execute = function(id,characteristic,value) {
   if(characteristic === "target_temperature") {
     characteristic += "_c";
     body = roundHalf(value*1.0); //nest requires 0.5 Celsius increments.
+  }else if(characteristic === "hvac_mode") {
+    switch(value) {
+      case Characteristic.CurrentHeatingCoolingState.OFF:
+        body = "off"
+        break;
+      case Characteristic.CurrentHeatingCoolingState.COOL:
+        body = "cool"
+        break;
+      case Characteristic.CurrentHeatingCoolingState.HEAT:
+        body = "heat"
+        break;
+      case 3: //auto
+        body = "heat-cool"
+        break;
+      default:
+        body = null;
+    }
   }
   
   var post_data = JSON.stringify(body); 
@@ -197,6 +232,30 @@ var getValue = function(id,characteristic) {
     	case "target_temperature":
     		ret=thermostat.target_temperature_c;
     		break;
+      case "hvac_mode":
+        switch(thermostat.hvac_mode) {
+          case "heat":
+            ret=Characteristic.CurrentHeatingCoolingState.HEAT;
+            break;
+          case "cool":
+            ret=Characteristic.CurrentHeatingCoolingState.COOL;
+            break;
+          case "heat-cool":
+            ret=3; //not officially supported in homekit types as of 9/17/15... maybe apple will fix? value of "auto" in simulator
+            break;
+          case "off":
+            ret=Characteristic.CurrentHeatingCoolingState.OFF;
+            break;
+          default:
+            ret=null;
+        }
+        break;
+      case "humidity":
+        ret=thermostat.humidity;
+        break;
+      case "temperature_scale":
+        ret=(thermostat.temperature_scale === "C" ? Characteristic.TemperatureDisplayUnits.CELSIUS : Characteristic.TemperatureDisplayUnits.FAHRENHEIT);
+        break;
     	default:
     		ret=null;
     }
@@ -204,154 +263,29 @@ var getValue = function(id,characteristic) {
   }
 };
 
-// var newTemplateAccessory = function () {
-//   return {
-//     displayName: "Thermostat",
-//     username: "CA:3E:BC:4D:5E:FF",
-//     pincode: "031-45-154",
-//     services: [{
-//       sType: types.ACCESSORY_INFORMATION_STYPE, 
-//       characteristics: [{
-//         cType: types.NAME_CTYPE, 
-//         onUpdate: null,
-//         perms: ["pr"],
-//         format: "string",
-//         initialValue: "",
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Name of thermostat",
-//         designedMaxLength: 255    
-//       },{
-//         cType: types.MANUFACTURER_CTYPE, 
-//         onUpdate: null,
-//         perms: ["pr"],
-//         format: "string",
-//         initialValue: "Nest",
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Manufacturer",
-//         designedMaxLength: 255    
-//       },{
-//         cType: types.MODEL_CTYPE,
-//         onUpdate: null,
-//         perms: ["pr"],
-//         format: "string",
-//         initialValue: "T200577",
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Model",
-//         designedMaxLength: 255    
-//       },{
-//         cType: types.SERIAL_NUMBER_CTYPE, 
-//         onUpdate: null,
-//         perms: ["pr"],
-//         format: "string",
-//         initialValue: "",
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Serial",
-//         designedMaxLength: 255    
-//       },{
-//         cType: types.IDENTIFY_CTYPE, 
-//         onUpdate: null,
-//         perms: ["pw"],
-//         format: "bool",
-//         initialValue: false,
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Identify Accessory",
-//         designedMaxLength: 1    
-//       }]
-//     },{
-//       sType: types.THERMOSTAT_STYPE, 
-//       characteristics: [{
-//         cType: types.NAME_CTYPE,
-//         onUpdate: null,
-//         perms: ["pr"],
-//         format: "string",
-//         initialValue: "Thermostat Control",
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Bla",
-//         designedMaxLength: 255   
-//       },{
-//         cType: types.CURRENTHEATINGCOOLING_CTYPE,
-//         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "current_mode", value); },
-//         perms: ["pr","ev"],
-//         format: "int",
-//         initialValue: 2,
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Current Mode",
-//         designedMaxLength: 1,
-//         designedMinValue: 0,
-//         designedMaxValue: 2,
-//         designedMinStep: 1,    
-//       },{
-//         cType: types.TARGETHEATINGCOOLING_CTYPE,
-//         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "target_mode", value); },
-//         perms: ["pw","pr","ev"],
-//         format: "int",
-//         initialValue: 3,
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Target Mode",
-//         designedMinValue: 0,
-//         designedMaxValue: 3,
-//         designedMinStep: 1,
-//       },{
-//         cType: types.CURRENT_TEMPERATURE_CTYPE,
-//         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "current_temperature", value); },
-//         onRead: function(callback) { console.log("OnRead: Current Temperature"); callback(getValue(this.locals.id, "current_temperature")); },
-//         perms: ["pr","ev"],
-//         format: "int",
-//         initialValue: 20,
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Current Temperature",
-//         unit: "celsius"
-//       },{
-//         cType: types.TARGET_TEMPERATURE_CTYPE,
-//         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "target_temperature", value); },
-//         onRead: function(callback) { console.log("OnRead: Target Temperature"); callback(getValue(this.locals.id, "target_temperature")); },
-//         perms: ["pw","pr","ev"],
-//         format: "int",
-//         initialValue: 20,
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Target Temperature",
-//         designedMinValue: 16,
-//         designedMaxValue: 38,
-//         designedMinStep: 0.5,
-//         unit: "celsius"
-//       },{
-//         cType: types.TEMPERATURE_UNITS_CTYPE,
-//         onUpdate: function(value) { console.log("Change:",value); execute(this.locals.name, this.locals.id, "unit", value); },
-//         perms: ["pr","ev"],
-//         format: "int",
-//         initialValue: 1,
-//         supportEvents: false,
-//         supportBonjour: false,
-//         manfDescription: "Unit",
-//       }]
-//     }]
-//   };
-// };
-
 //the factory creates new accessory objects with the parameters that are passed
 var nestAccFactory = function (paramsObject) {
 
   var NEST_THERMOSTAT = {
     number: paramsObject.id,
-    heating_mode: 0,
     current_temperature: 32, // celsius
     target_temperature_: 32, // celsius
-    display_units: 0, // celsius
+    temperature_scale: Characteristic.TemperatureDisplayUnits.FAHRENHEIT,
+    current_heating_cooling_state: Characteristic.CurrentHeatingCoolingState.OFF,
+    target_heating_cooling_state: Characteristic.CurrentHeatingCoolingState.OFF,
+    current_relative_humidity: 50, // 50%
+    cooling_threshold_temperature: 32,
+    heating_threshold_temperature: 32,
     
     setTemperature: function(temperature) {
       console.log("Setting thermostat temperature to %s", temperature);
       execute(NEST_THERMOSTAT.number, "target_temperature", temperature);
       NEST_THERMOSTAT.target_temperature = temperature;
+    },
+    setTemperature: function(state) {
+      console.log("Setting thermostat target_heating_cooling_state to %s", state);
+      execute(NEST_THERMOSTAT.number, "hvac_mode", state);
+      NEST_THERMOSTAT.target_heating_cooling_state = state;
     }
   }
 
@@ -372,46 +306,12 @@ var nestAccFactory = function (paramsObject) {
     .setCharacteristic(Characteristic.Model, "NESTTHERMOSTAT")
     .setCharacteristic(Characteristic.SerialNumber, serial);
 
-  // listen for the "identify" event for this Accessory
-  // nest.on('identify', function(paired, callback) {
-  //   HUE_LIGHT.identify();
-  //   callback(); // success
-  // });
-
-  // Add the actual Lightbulb Service and listen for change events from iOS.
-  // We can see the complete list of Services and Characteristics in `lib/gen/HomeKitTypes.js`
   nest
-    .addService(Service.Thermostat, name); // services exposed to the user should have "names" like "Fake Light" for us
-  //   .getCharacteristic(Characteristic.On)
-  //   .on('set', function(value, callback) {
-  //     HUE_LIGHT.setPowerOn(value);
-  //     callback(); // Our fake Light is synchronous - this value has been successfully set
-  //   });
+    .addService(Service.Thermostat, name); // services exposed to the user should have "names"
 
-  // We want to intercept requests for our current power state so we can query the hardware itself instead of
-  // allowing HAP-NodeJS to return the cached Characteristic.value.
-  // nest
-  //   .getService(Service.Lightbulb)
-  //   .getCharacteristic(Characteristic.Temperature)
-  //   .on('get', function(callback) {
-      
-  //     // this event is emitted when you ask Siri directly whether your light is on or not. you might query
-  //     // the light hardware itself to find this out, then call the callback. But if you take longer than a
-  //     // few seconds to respond, Siri will give up.
-      
-  //     var err = null; // in case there were any problems
-      
-  //     if (NEST_THERMOSTAT.powerOn) {
-  //       console.log("Are we on? Yes.");
-  //       callback(err, true);
-  //     }
-  //     else {
-  //       console.log("Are we on? No.");
-  //       callback(err, false);
-  //     }
-  //   });
+  // add required Characteristics
 
-  // also add an "optional" Characteristic for Brightness
+  // current temperature
   nest
     .getService(Service.Thermostat)
     .getCharacteristic(Characteristic.CurrentTemperature)
@@ -420,6 +320,7 @@ var nestAccFactory = function (paramsObject) {
       callback(null, NEST_THERMOSTAT.current_temperature);
     });
 
+  // target temperature
   nest
     .getService(Service.Thermostat)
     .getCharacteristic(Characteristic.TargetTemperature)
@@ -432,74 +333,47 @@ var nestAccFactory = function (paramsObject) {
       callback();
     });
 
-  // nest
-  //   .getService(Service.Lightbulb)
-  //   .addCharacteristic(Characteristic.Saturation)
-  //   .on('get', function(callback) {
-  //     callback(null, NEST_THERMOSTAT.saturation);
-  //   })
-  //   .on('set', function(value, callback) {
-  //     NEST_THERMOSTAT.setSaturation(value);
-  //     callback();
-  //   });
+  // current heating cooling state
+  nest
+    .getService(Service.Thermostat)
+    .getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+    .on('get', function(callback) {
+      NEST_THERMOSTAT.current_heating_cooling_state = getValue(NEST_THERMOSTAT.number, "hvac_mode");
+      callback(null, NEST_THERMOSTAT.current_heating_cooling_state);
+    });
 
-  // nest
-  //   .getService(Service.Lightbulb)
-  //   .addCharacteristic(Characteristic.Hue)
-  //   .on('get', function(callback) {
-  //     callback(null, NEST_THERMOSTAT.hue);
-  //   })
-  //   .on('set', function(value, callback) {
-  //     NEST_THERMOSTAT.setHue(value);
-  //     callback();
-  //   });
+  // target heating cooling state
+  nest
+    .getService(Service.Thermostat)
+    .getCharacteristic(Characteristic.TargetHeatingCoolingState)
+    .on('get', function(callback) {
+      //NEST_THERMOSTAT.target_heating_cooling_state = getValue(NEST_THERMOSTAT.number, "hvac_mode");
+      callback(null, NEST_THERMOSTAT.target_heating_cooling_state);
+    })
+    .on('set', function(value, callback) {
+      NEST_THERMOSTAT.setTargetHeatingCoolingState(value);
+      callback();
+    });
 
+  // display units (Nest only has read)
+  nest
+    .getService(Service.Thermostat)
+    .getCharacteristic(Characteristic.TemperatureDisplayUnits)
+    .on('get', function(callback) {
+      NEST_THERMOSTAT.display_units = getValue(NEST_THERMOSTAT.number, "temperature_scale");
+      callback(null, NEST_THERMOSTAT.display_units);
+    });
+
+  // relative humidity (Nest only has read) OPTIONAL
+  nest
+    .getService(Service.Thermostat)
+    .addCharacteristic(Characteristic.CurrentRelativeHumidity)
+    .on('get', function(callback) {
+      NEST_THERMOSTAT.current_relative_humidity = getValue(NEST_THERMOSTAT.number, "humidity");
+      callback(null, NEST_THERMOSTAT.current_relative_humidity);
+    });
 
   return nest;
-
-    // if (typeof paramsObject === 'undefined') {
-    //     console.log("nestAccFactory requires an paramsObject!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
-    // if (typeof paramsObject.id !== 'string') {
-    //     console.log("nestAccFactory requires an paramsObject.groupAdress as a string!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
-    // if (typeof paramsObject.name !== 'string') {
-    //     console.log("nestAccFactory requires an paramsObject.groupAdress as a string!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
-    // if (typeof paramsObject.temperature_scale !== 'string') {
-    //     console.log("nestAccFactory requires an paramsObject.fullname as a string!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {{id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
-    // if (typeof paramsObject.hvac_mode !== 'string') {
-    //     console.log("nestAccFactory requires an paramsObject.fullname as a string!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {{id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
-    // if (typeof paramsObject.current_temperature !== 'number') {
-    //     console.log("nestAccFactory requires an paramsObject.fullname as a string!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {{id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
-    // if (typeof paramsObject.target_temperature !== 'number') {
-    //     console.log("nestAccFactory requires an paramsObject.fullname as a string!");
-    //     throw {name: "ENOPARAMS", message: "required parameter missing, provide {{id, name, temperature_scale, hvac_mode, current_temperature, target_temperature}."};
-    // }
- 
-    // var newAccessory = newTemplateAccessory();
-  
-    // newAccessory.displayName = paramsObject.name;
-    // newAccessory.username = genMAC(paramsObject.id);
-    // newAccessory.serialNumber = paramsObject.id;
-    // newAccessory.locals = {
-    //   name: paramsObject.name,
-    //   id: paramsObject.id
-    // };
-    // newAccessory.services[0].characteristics[0].initialValue = paramsObject.name; // NAME_CTYPE
-    // newAccessory.services[0].characteristics[3].initialValue = genMAC(paramsObject.id); // SERIAL_NUMBER_CTYPE
-
-    // //console.log(newAccessory);
-    // return newAccessory;
 };
 
 module.exports = (function() {
