@@ -282,7 +282,7 @@ var nestAccFactory = function (paramsObject) {
       execute(NEST_THERMOSTAT.number, "target_temperature", temperature);
       NEST_THERMOSTAT.target_temperature = temperature;
     },
-    setTemperature: function(state) {
+    setTargetHeatingCoolingState: function(state) {
       console.log("Setting thermostat target_heating_cooling_state to %s", state);
       execute(NEST_THERMOSTAT.number, "hvac_mode", state);
       NEST_THERMOSTAT.target_heating_cooling_state = state;
