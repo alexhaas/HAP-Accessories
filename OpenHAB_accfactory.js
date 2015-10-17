@@ -47,7 +47,7 @@ var getLights = function() {
         if (typeof obj["item"][k] !== 'function') {
           console.log(obj["item"][k]);
           var light = obj["item"][k];
-          if(light.name.toLowerCase().indexOf("light") > -1){
+          if(light.name.toLowerCase().indexOf("_hklight") > -1){
             // only add it if it has light in the name... #hax
             lightList.push({
               name: light.name
