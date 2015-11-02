@@ -4,7 +4,7 @@ var exports = module.exports = {};
 
 exports.accessory = {
   displayName: "Node Bridge",
-  username: "CC:22:3D:E3:CE:F1",
+  username: "B8:27:EB:05:29:2F",
   pincode: "031-45-154",
   services: [{
     sType: types.ACCESSORY_INFORMATION_STYPE, 
